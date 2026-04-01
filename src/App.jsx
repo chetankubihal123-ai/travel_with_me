@@ -225,11 +225,10 @@ function App() {
   useEffect(() => {
     if (user) {
       const fetchTrips = async () => {
-        const expiry = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        // Removed gt(created_at) filter to avoid timezone/format mismatches
         const { data } = await supabase.from('trips')
           .select('*')
-          .eq('status', 'active')
-          .gt('created_at', expiry);
+          .eq('status', 'active');
         
         if (data) {
           setNearbyTrips(data);
@@ -243,10 +242,10 @@ function App() {
       };
       
       fetchTrips();
-      const sub = supabase.channel('v6_trips').on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, fetchTrips).subscribe();
+      const sub = supabase.channel('v6_trips_final').on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, fetchTrips).subscribe();
       return () => supabase.removeChannel(sub);
     }
-  }, [user, activeConnection]);
+  }, [user, activeConnection, isDriving]);
 
   useEffect(() => {
     if (isDriving && activeTripId) {
@@ -481,25 +480,27 @@ function App() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-              {nearbyTrips.map(t => (
-                <motion.div whileHover={{ y: -5 }} key={t.id} className="glass-card" style={{ padding: '1.8rem', display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ padding: '16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '22px' }}>
-                    {t.vehicle_type === 'bike' ? <Bike size={32} color="#8b5cf6" /> : <Car size={32} color="#8b5cf6" />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{fontWeight: 900, fontSize: '1.4rem'}}>{t.user_name}</div>
-                    <div style={{fontSize: '0.95rem', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '6px', color: parseFloat(calculateDistance(location?.lat, location?.lng, t.lat, t.lng)) < 1 ? '#22c55e' : 'inherit'}}>
-                      <Clock size={16} /> {calculateDistance(location?.lat, location?.lng, t.lat, t.lng)} KM away
-                    </div>
-                  </div>
-                  <button onClick={() => handleJoinTrip(t)} style={{ padding: '16px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)' }}><Navigation2 size={24} /></button>
-                </motion.div>
-              ))}
-              {nearbyTrips.length === 0 && (
+              {nearbyTrips.length === 0 ? (
                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', opacity: 0.5 }}>
-                  <Loader2 size={48} className="animate-spin" style={{ margin: '0 auto 1rem' }} />
-                  <p>Searching for nearby riders...</p>
+                  <Compass size={48} className="animate-pulse" style={{ margin: '0 auto 1rem' }} />
+                  <p style={{fontWeight: 600}}>No active students right now</p>
+                  <p style={{fontSize: '0.85rem'}}>Be the first to start a broadcast!</p>
                 </div>
+              ) : (
+                nearbyTrips.map(t => (
+                  <motion.div whileHover={{ y: -5 }} key={t.id} className="glass-card" style={{ padding: '1.8rem', display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ padding: '16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '22px' }}>
+                      {t.vehicle_type === 'bike' ? <Bike size={32} color="#8b5cf6" /> : <Car size={32} color="#8b5cf6" />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{fontWeight: 900, fontSize: '1.4rem'}}>{t.user_name}</div>
+                      <div style={{fontSize: '0.95rem', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '6px', color: parseFloat(calculateDistance(location?.lat, location?.lng, t.lat, t.lng)) < 1 ? '#22c55e' : 'inherit'}}>
+                        <Clock size={16} /> {calculateDistance(location?.lat, location?.lng, t.lat, t.lng)} KM away
+                      </div>
+                    </div>
+                    <button onClick={() => handleJoinTrip(t)} style={{ padding: '16px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)' }}><Navigation2 size={24} /></button>
+                  </motion.div>
+                ))
               )}
             </div>
           </div>
